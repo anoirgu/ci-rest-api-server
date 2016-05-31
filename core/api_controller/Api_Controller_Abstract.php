@@ -34,7 +34,7 @@ abstract class Api_Controller_Abstract extends CI_Controller
 	
 	protected $_http_methods = array('GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD');
 	protected $_http_method = 'get';
-	protected $_emulate_http_method = false;
+	protected $_emulate_http_method = true;
 	protected $_allowed_http_methods = array();
 	
 	protected $_force_https = false;
@@ -128,6 +128,8 @@ abstract class Api_Controller_Abstract extends CI_Controller
 				}
 			}
 		}
+		
+		$this->_http_method = $this->_httpMethod();
 	}
 	
 	/**
@@ -190,6 +192,14 @@ abstract class Api_Controller_Abstract extends CI_Controller
 	}
 	
 	/**
+	 * Get or Check HTTP method of request
+	 * @param string $http_method
+	 */
+	protected function _requestMethod($http_method = ''){
+		return empty($http_method) ? $this->_http_method : (strtoupper($http_method) == $this->_http_method);
+	}
+	
+	/**
 	 * Get allowed response formats
 	 */
 	protected function _allowedFormats(){
@@ -237,23 +247,30 @@ abstract class Api_Controller_Abstract extends CI_Controller
 		($this->_allow_cors === true) and $this->_implementCORS();
 		
 		if($this->_force_https === true and !is_https()){
+			
 			$this->_response(array(
 				$this->_status_field => 0,
 				$this->_message_field => $this->lang->line('unsupported_protocol')
 			), Status::HTTP_FORBIDDEN);
+			
 		}elseif(! method_exists($this, $method)){
+			
 			$this->_response(array(
 				$this->_status_field => 0,
 				$this->_message_field => $this->lang->line('resource_not_found')
 			), Status::HTTP_NOT_FOUND);
+			
 		}elseif(method_exists($this, '_isAuthorized') and ! call_user_func(array($this, '_isAuthorized'))){
+			
 			if($this->_response_body === NULL){
 				$this->_response(array(
 					$this->_status_field => 0,
 					$this->_message_field => $this->lang->line('unauthorized')
 				), Status::HTTP_UNAUTHORIZED);
 			}
+			
 		}elseif(! $this->_checkHttpMethod()){
+			
 			($allowed_methods = $this->_allowedHttpMethods()) 
 			and $this->output->set_header('Allow: ' . implode(',', $allowed_methods));
 			
@@ -261,8 +278,16 @@ abstract class Api_Controller_Abstract extends CI_Controller
 				$this->_status_field => 0,
 				$this->_message_field => $this->lang->line('http_method_not_allowed')
 			), Status::HTTP_METHOD_NOT_ALLOWED);
+			
+		}elseif($this->_http_method == 'OPTIONS'){
+			
+			($allowed_methods = $this->_allowedHttpMethods()) 
+			and $this->output->set_header('Allow: ' . implode(',', $allowed_methods));
+			
 		}else{
+			
 			($this->_dispatch_resource === true) and call_user_func_array(array($this, $method), $params);
+			
 		}
 		
 		$this->_renderResponse();
